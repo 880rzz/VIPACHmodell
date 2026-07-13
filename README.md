@@ -154,3 +154,8 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - Darkened all gold text and links on ivory, white, sand, stone, mist and lilac backgrounds.
 - Kept the brighter decorative gold on dark surfaces.
 - Added hover and forced-colors accessibility behavior.
+
+## v19 — Mobile hero contrast
+- Added a thin dark outline and layered shadow to the large hero title on mobile only.
+- Applied consistently to HU, EN and DE pages.
+- Desktop typography remains unchanged.

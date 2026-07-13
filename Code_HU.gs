@@ -22,6 +22,11 @@ var CONFIG = {
   MAX_FIELD_LENGTH: 3000                 // mezőnkénti hosszkorlát (spam/abuse ellen)
 };
 
+
+function doGet() {
+  return jsonResponse({ ok: true, language: "hu", message: "VIPACH HU backend működik" });
+}
+
 function doPost(e) {
   try {
     var p = (e && e.parameter) ? e.parameter : {};

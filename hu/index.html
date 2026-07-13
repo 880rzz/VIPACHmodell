@@ -572,6 +572,26 @@ h3{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue
 }
 </style>
 
+
+<style id="vipach-mobile-hero-outline">
+@media (max-width:760px){
+  .hero .work-title{
+    -webkit-text-stroke:0.65px rgba(4,7,9,.92);
+    paint-order:stroke fill;
+    text-shadow:
+      0 1px 0 rgba(255,255,255,.08),
+      0 2px 14px rgba(0,0,0,.78),
+      0 6px 26px rgba(0,0,0,.56)!important;
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,.4));
+  }
+}
+@media (max-width:390px){
+  .hero .work-title{
+    -webkit-text-stroke:0.55px rgba(4,7,9,.92);
+  }
+}
+</style>
+
 </head>
 <body>
 <nav class="nav">
@@ -962,54 +982,109 @@ form.addEventListener("submit", async e=>{
   if(!form.reportValidity()) return;
   errBox.style.display = "none";
 
+  const lang = document.documentElement.dataset.staticLang || document.documentElement.lang || "en";
+  const endpoint = SCRIPT_URLS[lang];
+
+  if(!endpoint || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpoint)){
+    console.error("VIPACH: invalid Apps Script endpoint for language:", lang, endpoint);
+    errBox.style.display = "block";
+    errBox.scrollIntoView({behavior:"smooth",block:"center"});
+    return;
+  }
+
+  let langInput = form.querySelector('input[name="page_language"]');
+  if(!langInput){
+    langInput = document.createElement("input");
+    langInput.type = "hidden";
+    langInput.name = "page_language";
+    form.appendChild(langInput);
+  }
+  langInput.value = lang;
+
+  // Every submission gets a fresh iframe. This avoids Safari reusing an old
+  // about:blank load event and ensures the Google redirect can complete.
+  const frameName = "vipach_submit_" + lang + "_" + Date.now();
+  const frame = document.createElement("iframe");
+  frame.name = frameName;
+  frame.title = "Form submission";
+  frame.setAttribute("aria-hidden", "true");
+  frame.tabIndex = -1;
+  frame.style.position = "fixed";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.left = "-10000px";
+  frame.style.top = "-10000px";
+  frame.style.opacity = "0";
+  frame.style.pointerEvents = "none";
+  frame.style.border = "0";
+  document.body.appendChild(frame);
+
+  const origLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.setAttribute("aria-busy", "true");
+  submitBtn.textContent = {hu:"Küldés…",en:"Sending…",de:"Wird gesendet…"}[lang] || "…";
+
+  const previous = {
+    action: form.getAttribute("action"),
+    method: form.getAttribute("method"),
+    target: form.getAttribute("target"),
+    enctype: form.getAttribute("enctype")
+  };
+
+  const cleanup = ()=>{
+    if(previous.action === null) form.removeAttribute("action"); else form.setAttribute("action", previous.action);
+    if(previous.method === null) form.removeAttribute("method"); else form.setAttribute("method", previous.method);
+    if(previous.target === null) form.removeAttribute("target"); else form.setAttribute("target", previous.target);
+    if(previous.enctype === null) form.removeAttribute("enctype"); else form.setAttribute("enctype", previous.enctype);
+    setTimeout(()=>frame.remove(), 1500);
+  };
+
   const showSuccess = ()=>{
+    if(form.dataset.completed === "true") return;
+    form.dataset.completed = "true";
+    cleanup();
     form.style.display = "none";
     const ok = document.getElementById("formSuccess");
     ok.style.display = "block";
     ok.scrollIntoView({behavior:"smooth",block:"center"});
   };
 
-  const lang = document.documentElement.lang || "hu";
-  const endpoint = SCRIPT_URLS[lang] || SCRIPT_URLS.hu;
-
-  if(!endpoint){
-    console.warn("modell.vipach.at: SCRIPT_URLS."+lang+" nincs beállítva — demó mód, adat nem került elküldésre.");
-    showSuccess();
-    return;
-  }
-
-  const data = new FormData(form);
-  data.append("page_language", lang);
-
-  submitBtn.disabled = true;
-  const origLabel = submitBtn.textContent;
-  submitBtn.textContent = {hu:"Küldés…",en:"Sending…",de:"Wird gesendet…"}[lang] || "…";
-
-  try{
-    // Google Apps Script ContentService redirects its response to a Google
-    // content domain. In a static GitHub Pages site that response is opaque,
-    // therefore we send the POST in no-cors mode and do not try to parse JSON.
-    // A resolved fetch means the browser handed the request to Google.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(()=>controller.abort(), 20000);
-
-    await fetch(endpoint, {
-      method:"POST",
-      mode:"no-cors",
-      body:data,
-      signal:controller.signal,
-      keepalive:true
-    });
-
-    clearTimeout(timeoutId);
-    showSuccess();
-  }catch(err){
+  const showError = err=>{
     console.error("VIPACH form submission failed:", err);
+    cleanup();
     errBox.style.display = "block";
     errBox.scrollIntoView({behavior:"smooth",block:"center"});
-  }finally{
     submitBtn.disabled = false;
+    submitBtn.removeAttribute("aria-busy");
     submitBtn.textContent = origLabel;
+  };
+
+  form.action = endpoint;
+  form.method = "POST";
+  form.target = frameName;
+  form.enctype = "application/x-www-form-urlencoded";
+
+  let postStarted = false;
+  let confirmationTimer;
+  frame.addEventListener("load", ()=>{
+    if(!postStarted) return; // ignore initial about:blank load
+    clearTimeout(confirmationTimer);
+    showSuccess();
+  });
+
+  try{
+    // Allow the iframe's initial about:blank document to settle before targeting it.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    postStarted = true;
+    HTMLFormElement.prototype.submit.call(form);
+
+    // Apps Script returns through googleusercontent.com and browsers do not expose
+    // that response cross-origin. If the load event is suppressed, the POST has still
+    // been dispatched; show confirmation after a conservative grace period.
+    confirmationTimer = setTimeout(showSuccess, 4500);
+  }catch(err){
+    clearTimeout(confirmationTimer);
+    showError(err);
   }
 });
 

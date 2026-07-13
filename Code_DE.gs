@@ -22,6 +22,11 @@ var CONFIG = {
   MAX_FIELD_LENGTH: 3000
 };
 
+
+function doGet() {
+  return jsonResponse({ ok: true, language: "de", message: "VIPACH DE Backend ist erreichbar" });
+}
+
 function doPost(e) {
   try {
     var p = (e && e.parameter) ? e.parameter : {};
