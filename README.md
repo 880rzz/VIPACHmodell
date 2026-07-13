@@ -113,3 +113,10 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - English 1200 × 630 Open Graph/social share image.
 - Reduced-motion-aware premium motion and glass navigation.
 - No hidden files or folders.
+
+## v10 — Typography and UX audit
+- Persistent dark header in every state.
+- Apple-inspired system typography, sizes, line-height and spacing.
+- Reduced hero headline size on desktop, tablet and mobile.
+- Price explanation separated into a distinct light information panel.
+- Unreliable local GIF removed; replaced with a direct accessible Imgur example link.
