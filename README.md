@@ -143,3 +143,9 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - A projekt vizsgamunka-jellege egyértelműen bemutatva és a hivatalos Fotosuli-oldalhoz kapcsolva.
 - Hat elemes „Mit kapsz?” rendszer, szakmai záróprojekttel és kurátori prezentációval.
 - Harmonikus, egymástól jól elkülönülő Apple-jellegű háttérszínek minden fő tartalmi blokkhoz.
+
+## v17 — Updated English social media artwork
+
+- Replaced the previous Open Graph/Facebook artwork with the approved English campaign image.
+- Optimised 1200 × 630 JPG and WebP versions are used by Facebook, LinkedIn, WhatsApp, Messenger and X.
+- The full-resolution source is included as `social-share-en-original.png`.
