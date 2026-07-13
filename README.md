@@ -106,3 +106,10 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - A három meglévő Google Apps Script webapp URL változatlan maradt.
 - A `Code_HU.gs`, `Code_EN.gs` és `Code_DE.gs` az eredeti működési logikát tartja meg; csak a 299 EUR-os összeg és az „egy bécsi galéria” megfogalmazás lett átvezetve a visszaigazoló e-mailben.
 - Az új összeg e-mailes megjelenéséhez a három meglévő Apps Script projekt kódját frissíteni, majd ugyanazt a telepítést új verzióval közzétenni kell; új webapp URL nem szükséges.
+
+## v9 — Premium Apple-style release
+
+- Complete favicon and Apple touch icon family.
+- English 1200 × 630 Open Graph/social share image.
+- Reduced-motion-aware premium motion and glass navigation.
+- No hidden files or folders.
