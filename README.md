@@ -149,3 +149,8 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - Replaced the previous Open Graph/Facebook artwork with the approved English campaign image.
 - Optimised 1200 × 630 JPG and WebP versions are used by Facebook, LinkedIn, WhatsApp, Messenger and X.
 - The full-resolution source is included as `social-share-en-original.png`.
+
+## v18 — Light-background contrast correction
+- Darkened all gold text and links on ivory, white, sand, stone, mist and lilac backgrounds.
+- Kept the brighter decorative gold on dark surfaces.
+- Added hover and forced-colors accessibility behavior.
