@@ -1,0 +1,15 @@
+{
+  "name": "Nagy fotóművészek nyomában — VIPACH",
+  "short_name": "VIPACH Modell",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#fbfbfd",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
