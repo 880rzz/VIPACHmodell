@@ -48,54 +48,70 @@ function doPost(e) {
 
     // 1) Mentés a táblázatba
     var sheet = getSheet();
-    sheet.appendRow([
+    var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
       'magyar oldal', 'új'
     ]);
 
     // 2) Visszaigazoló e-mail a jelentkezőnek
-    MailApp.sendEmail({
-      to: email,
-      subject: 'Megkaptuk a jelentkezésed — Nagy fotóművészek nyomában | VIPACH',
-      name: CONFIG.FROM_NAME,
-      replyTo: CONFIG.NOTIFY_EMAIL,
-      body:
-        'Kedves ' + name + '!\n\n' +
-        'Köszönjük a jelentkezésed a „Nagy fotóművészek nyomában" exkluzív fotóprojektre és évzáró kiállításra!\n\n' +
-        'A jelentkezésed adatai:\n' +
-        '• Név: ' + name + '\n' +
-        '• E-mail: ' + email + '\n' +
-        (phone ? '• Telefon: ' + phone + '\n' : '') +
-        '• Lakóhely: ' + city + '\n\n' +
-        'Fontos: ez az e-mail a jelentkezésed beérkezését igazolja, és önmagában nem jelent kiválasztást ' +
-        'és nem keletkeztet fizetési kötelezettséget.\n\n' +
-        'A helyek száma limitált (20 fő), a jelentkezési határidő 2026. augusztus 31. Minden jelentkezésre 48 órán belül válaszolunk; ha kiválasztásra kerülsz, ' +
-        'külön visszaigazoló e-mailt küldünk, amely tartalmazza a 299 EUR részvételi díj online befizetési linkjét. ' +
-        'A díj a VIPACH Fotóklub fenntartója, a Bécsi Magyar Iskola (www.magyariskola.at) számlájára érkezik.\n\n' +
-        'A kiállítás 2026 novemberében lesz egy bécsi galériában. Védnöke és kurátora Bánhalmi Norbert fotóművész.\n\n' +
-        'Kérdés esetén írj bátran: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
-        'Üdvözlettel,\n' +
-        'a VIPACH csapata\n' +
-        'Vienna Photo Art & Creative Hub\n' +
-        'https://www.vipach.at'
-    });
+    var applicantEmailStatus = 'jelentkezői e-mail elküldve';
+    try {
+      MailApp.sendEmail({
+            to: email,
+            subject: 'Megkaptuk a jelentkezésed — Nagy fotóművészek nyomában | VIPACH',
+            name: CONFIG.FROM_NAME,
+            replyTo: CONFIG.NOTIFY_EMAIL,
+            body:
+              'Kedves ' + name + '!\n\n' +
+              'Köszönjük a jelentkezésed a „Nagy fotóművészek nyomában" exkluzív fotóprojektre és évzáró kiállításra!\n\n' +
+              'A jelentkezésed adatai:\n' +
+              '• Név: ' + name + '\n' +
+              '• E-mail: ' + email + '\n' +
+              (phone ? '• Telefon: ' + phone + '\n' : '') +
+              '• Lakóhely: ' + city + '\n\n' +
+              'Fontos: ez az e-mail a jelentkezésed beérkezését igazolja, és önmagában nem jelent kiválasztást ' +
+              'és nem keletkeztet fizetési kötelezettséget.\n\n' +
+              'A helyek száma limitált (20 fő), a jelentkezési határidő 2026. augusztus 31. Minden jelentkezésre 48 órán belül válaszolunk; ha kiválasztásra kerülsz, ' +
+              'külön visszaigazoló e-mailt küldünk, amely tartalmazza a 299 EUR részvételi díj online befizetési linkjét. ' +
+              'A díj a VIPACH Fotóklub fenntartója, a Bécsi Magyar Iskola (www.magyariskola.at) számlájára érkezik.\n\n' +
+              'A kiállítás 2026 novemberében lesz egy bécsi galériában. Védnöke és kurátora Bánhalmi Norbert fotóművész.\n\n' +
+              'Kérdés esetén írj bátran: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
+              'Üdvözlettel,\n' +
+              'a VIPACH csapata\n' +
+              'Vienna Photo Art & Creative Hub\n' +
+              'https://www.vipach.at'
+          });
+    } catch (mailError) {
+      applicantEmailStatus = 'jelentkezői e-mail hiba: ' + String(mailError);
+      console.error('Applicant email error: ' + mailError);
+    }
 
     // 3) Értesítés a szervezőknek
-    MailApp.sendEmail({
-      to: CONFIG.NOTIFY_EMAIL,
-      subject: '[modell.vipach.at] Új jelentkezés (HU): ' + name,
-      name: CONFIG.FROM_NAME,
-      replyTo: email,
-      body:
-        'Új jelentkezés érkezett a magyar nyelvű oldalról.\n\n' +
-        'Név: ' + name + '\n' +
-        'E-mail: ' + email + '\n' +
-        'Telefon: ' + (phone || '—') + '\n' +
-        'Lakóhely: ' + city + '\n' +
-        'Az oldal nyelve: ' + (pageLang || '—') + '\n' +
-        'Üzenet:\n' + (message || '—') + '\n\n' +
-        'Táblázat: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
-    });
+    var organiserEmailStatus = 'szervezői e-mail elküldve';
+    try {
+      MailApp.sendEmail({
+            to: CONFIG.NOTIFY_EMAIL,
+            subject: '[modell.vipach.at] Új jelentkezés (HU): ' + name,
+            name: CONFIG.FROM_NAME,
+            replyTo: email,
+            body:
+              'Új jelentkezés érkezett a magyar nyelvű oldalról.\n\n' +
+              'Név: ' + name + '\n' +
+              'E-mail: ' + email + '\n' +
+              'Telefon: ' + (phone || '—') + '\n' +
+              'Lakóhely: ' + city + '\n' +
+              'Az oldal nyelve: ' + (pageLang || '—') + '\n' +
+              'Üzenet:\n' + (message || '—') + '\n\n' +
+              'Táblázat: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
+          });
+    } catch (notifyError) {
+      organiserEmailStatus = 'szervezői e-mail hiba: ' + String(notifyError);
+      console.error('Organiser email error: ' + notifyError);
+    }
+
+    // The application is already safely stored. Mail delivery errors are
+    // recorded in the status column but do not turn the submission into a failure.
+    sheet.getRange(rowNumber, 9).setValue('mentve | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
     return jsonResponse({ ok: true });
 
@@ -117,6 +133,25 @@ function getSheet() {
     sheet.getRange('1:1').setFontWeight('bold');
   }
   return sheet;
+}
+
+function appendApplicationRow(sheet, values) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var safeValues = values.map(safeForSheet);
+    sheet.appendRow(safeValues);
+    return sheet.getLastRow();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Prevents spreadsheet formula injection from user-provided values. */
+function safeForSheet(value) {
+  if (value instanceof Date) return value;
+  var text = String(value == null ? '' : value);
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
 }
 
 function clean(v) {

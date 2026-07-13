@@ -120,3 +120,26 @@ The legal pages are carefully drafted for an Austrian/EU consumer project, but p
 - Reduced hero headline size on desktop, tablet and mobile.
 - Price explanation separated into a distinct light information panel.
 - Unreliable local GIF removed; replaced with a direct accessible Imgur example link.
+
+## v11 — FAQ spacing correction
+
+- Added balanced internal spacing to FAQ questions and answers on desktop, tablet and mobile.
+- Moved expand/collapse controls inward from the edge.
+- Improved reading width and line height.
+
+
+## v12 — Form submission reliability fix
+
+- Frontend now sends Google Apps Script requests with `mode: no-cors` and no longer parses the redirected ContentService response.
+- A 20-second timeout and visible network-error handling were added.
+- Applicant and organiser emails are handled independently in all three Apps Script versions.
+- A mail delivery error no longer marks an already saved application as failed.
+- Delivery status is written into the spreadsheet status column.
+- Spreadsheet formula-injection protection and an append lock were added.
+- Existing `/exec` URLs can remain unchanged after deploying a new script version.
+
+## v13 — Fotóművészeti történet és harmonikus szekciórendszer
+- Új, 9 fotóművészt bemutató háromnyelvű történeti blokk.
+- A projekt vizsgamunka-jellege egyértelműen bemutatva és a hivatalos Fotosuli-oldalhoz kapcsolva.
+- Hat elemes „Mit kapsz?” rendszer, szakmai záróprojekttel és kurátori prezentációval.
+- Harmonikus, egymástól jól elkülönülő Apple-jellegű háttérszínek minden fő tartalmi blokkhoz.

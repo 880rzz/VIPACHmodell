@@ -48,54 +48,70 @@ function doPost(e) {
 
     // 1) Log to the sheet
     var sheet = getSheet();
-    sheet.appendRow([
+    var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
       'English page', 'new'
     ]);
 
     // 2) Confirmation email to the applicant
-    MailApp.sendEmail({
-      to: email,
-      subject: 'We have received your application — In the Footsteps of Great Photographers | VIPACH',
-      name: CONFIG.FROM_NAME,
-      replyTo: CONFIG.NOTIFY_EMAIL,
-      body:
-        'Dear ' + name + ',\n\n' +
-        'Thank you for applying to "In the Footsteps of Great Photographers", our exclusive photo project and year-end exhibition!\n\n' +
-        'Your application details:\n' +
-        '• Name: ' + name + '\n' +
-        '• Email: ' + email + '\n' +
-        (phone ? '• Phone: ' + phone + '\n' : '') +
-        '• Place of residence: ' + city + '\n\n' +
-        'Important: this email confirms that your application has been received. It does not constitute selection ' +
-        'and does not create any payment obligation.\n\n' +
-        'Places are limited (20 participants) and the application deadline is 31 August 2026. We respond to every application within 48 hours; if you are selected, ' +
-        'you will receive a separate confirmation email containing the online payment link for the EUR 299 participation fee. ' +
-        'The fee is paid to the account of the maintaining organisation of the VIPACH Photo Club, the Hungarian School of Vienna (www.magyariskola.at).\n\n' +
-        'The exhibition will take place in November 2026 in a gallery in Vienna. Its patron and curator is fine art photographer Norbert Bánhalmi.\n\n' +
-        'If you have any questions, feel free to write to us: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
-        'Best regards,\n' +
-        'The VIPACH team\n' +
-        'Vienna Photo Art & Creative Hub\n' +
-        'https://www.vipach.at'
-    });
+    var applicantEmailStatus = 'applicant email sent';
+    try {
+      MailApp.sendEmail({
+            to: email,
+            subject: 'We have received your application — In the Footsteps of Great Photographers | VIPACH',
+            name: CONFIG.FROM_NAME,
+            replyTo: CONFIG.NOTIFY_EMAIL,
+            body:
+              'Dear ' + name + ',\n\n' +
+              'Thank you for applying to "In the Footsteps of Great Photographers", our exclusive photo project and year-end exhibition!\n\n' +
+              'Your application details:\n' +
+              '• Name: ' + name + '\n' +
+              '• Email: ' + email + '\n' +
+              (phone ? '• Phone: ' + phone + '\n' : '') +
+              '• Place of residence: ' + city + '\n\n' +
+              'Important: this email confirms that your application has been received. It does not constitute selection ' +
+              'and does not create any payment obligation.\n\n' +
+              'Places are limited (20 participants) and the application deadline is 31 August 2026. We respond to every application within 48 hours; if you are selected, ' +
+              'you will receive a separate confirmation email containing the online payment link for the EUR 299 participation fee. ' +
+              'The fee is paid to the account of the maintaining organisation of the VIPACH Photo Club, the Hungarian School of Vienna (www.magyariskola.at).\n\n' +
+              'The exhibition will take place in November 2026 in a gallery in Vienna. Its patron and curator is fine art photographer Norbert Bánhalmi.\n\n' +
+              'If you have any questions, feel free to write to us: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
+              'Best regards,\n' +
+              'The VIPACH team\n' +
+              'Vienna Photo Art & Creative Hub\n' +
+              'https://www.vipach.at'
+          });
+    } catch (mailError) {
+      applicantEmailStatus = 'applicant email failed: ' + String(mailError);
+      console.error('Applicant email error: ' + mailError);
+    }
 
     // 3) Notification to the organisers
-    MailApp.sendEmail({
-      to: CONFIG.NOTIFY_EMAIL,
-      subject: '[modell.vipach.at] New application (EN): ' + name,
-      name: CONFIG.FROM_NAME,
-      replyTo: email,
-      body:
-        'A new application has arrived from the English page.\n\n' +
-        'Name: ' + name + '\n' +
-        'Email: ' + email + '\n' +
-        'Phone: ' + (phone || '—') + '\n' +
-        'City: ' + city + '\n' +
-        'Page language: ' + (pageLang || '—') + '\n' +
-        'Message:\n' + (message || '—') + '\n\n' +
-        'Sheet: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
-    });
+    var organiserEmailStatus = 'organiser email sent';
+    try {
+      MailApp.sendEmail({
+            to: CONFIG.NOTIFY_EMAIL,
+            subject: '[modell.vipach.at] New application (EN): ' + name,
+            name: CONFIG.FROM_NAME,
+            replyTo: email,
+            body:
+              'A new application has arrived from the English page.\n\n' +
+              'Name: ' + name + '\n' +
+              'Email: ' + email + '\n' +
+              'Phone: ' + (phone || '—') + '\n' +
+              'City: ' + city + '\n' +
+              'Page language: ' + (pageLang || '—') + '\n' +
+              'Message:\n' + (message || '—') + '\n\n' +
+              'Sheet: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
+          });
+    } catch (notifyError) {
+      organiserEmailStatus = 'organiser email failed: ' + String(notifyError);
+      console.error('Organiser email error: ' + notifyError);
+    }
+
+    // The application is already safely stored. Mail delivery errors are
+    // recorded in the status column but do not turn the submission into a failure.
+    sheet.getRange(rowNumber, 9).setValue('saved | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
     return jsonResponse({ ok: true });
 
@@ -117,6 +133,25 @@ function getSheet() {
     sheet.getRange('1:1').setFontWeight('bold');
   }
   return sheet;
+}
+
+function appendApplicationRow(sheet, values) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var safeValues = values.map(safeForSheet);
+    sheet.appendRow(safeValues);
+    return sheet.getLastRow();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Prevents spreadsheet formula injection from user-provided values. */
+function safeForSheet(value) {
+  if (value instanceof Date) return value;
+  var text = String(value == null ? '' : value);
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
 }
 
 function clean(v) {

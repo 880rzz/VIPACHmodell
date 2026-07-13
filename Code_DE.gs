@@ -48,54 +48,70 @@ function doPost(e) {
 
     // 1) In das Sheet eintragen
     var sheet = getSheet();
-    sheet.appendRow([
+    var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
       'deutsche Seite', 'neu'
     ]);
 
     // 2) Bestätigungs-E-Mail an die Bewerberin / den Bewerber
-    MailApp.sendEmail({
-      to: email,
-      subject: 'Wir haben deine Bewerbung erhalten — Auf den Spuren großer Fotokünstler | VIPACH',
-      name: CONFIG.FROM_NAME,
-      replyTo: CONFIG.NOTIFY_EMAIL,
-      body:
-        'Liebe/r ' + name + ',\n\n' +
-        'vielen Dank für deine Bewerbung zu „Auf den Spuren großer Fotokünstler", unserem exklusiven Fotoprojekt mit Jahresabschluss-Ausstellung!\n\n' +
-        'Deine Bewerbungsdaten:\n' +
-        '• Name: ' + name + '\n' +
-        '• E-Mail: ' + email + '\n' +
-        (phone ? '• Telefon: ' + phone + '\n' : '') +
-        '• Wohnort: ' + city + '\n\n' +
-        'Wichtig: Diese E-Mail bestätigt den Eingang deiner Bewerbung. Sie stellt keine Auswahl dar ' +
-        'und begründet keine Zahlungspflicht.\n\n' +
-        'Die Plätze sind begrenzt (20 Teilnehmende), Bewerbungsfrist ist der 31. August 2026. Wir antworten auf jede Bewerbung innerhalb von 48 Stunden; wirst du ausgewählt, ' +
-        'erhältst du eine separate Bestätigungs-E-Mail mit dem Online-Zahlungslink für den Teilnahmebeitrag von 299 EUR. ' +
-        'Der Beitrag wird auf das Konto des Trägers des VIPACH Fotoklubs, der Ungarischen Schule Wien (www.magyariskola.at), eingezahlt.\n\n' +
-        'Die Ausstellung findet im November 2026 in einer Wiener Galerie statt. Schirmherr und Kurator ist der Fotokünstler Norbert Bánhalmi.\n\n' +
-        'Bei Fragen schreib uns gerne: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
-        'Herzliche Grüße,\n' +
-        'das VIPACH-Team\n' +
-        'Vienna Photo Art & Creative Hub\n' +
-        'https://www.vipach.at'
-    });
+    var applicantEmailStatus = 'Bestätigung gesendet';
+    try {
+      MailApp.sendEmail({
+            to: email,
+            subject: 'Wir haben deine Bewerbung erhalten — Auf den Spuren großer Fotokünstler | VIPACH',
+            name: CONFIG.FROM_NAME,
+            replyTo: CONFIG.NOTIFY_EMAIL,
+            body:
+              'Liebe/r ' + name + ',\n\n' +
+              'vielen Dank für deine Bewerbung zu „Auf den Spuren großer Fotokünstler", unserem exklusiven Fotoprojekt mit Jahresabschluss-Ausstellung!\n\n' +
+              'Deine Bewerbungsdaten:\n' +
+              '• Name: ' + name + '\n' +
+              '• E-Mail: ' + email + '\n' +
+              (phone ? '• Telefon: ' + phone + '\n' : '') +
+              '• Wohnort: ' + city + '\n\n' +
+              'Wichtig: Diese E-Mail bestätigt den Eingang deiner Bewerbung. Sie stellt keine Auswahl dar ' +
+              'und begründet keine Zahlungspflicht.\n\n' +
+              'Die Plätze sind begrenzt (20 Teilnehmende), Bewerbungsfrist ist der 31. August 2026. Wir antworten auf jede Bewerbung innerhalb von 48 Stunden; wirst du ausgewählt, ' +
+              'erhältst du eine separate Bestätigungs-E-Mail mit dem Online-Zahlungslink für den Teilnahmebeitrag von 299 EUR. ' +
+              'Der Beitrag wird auf das Konto des Trägers des VIPACH Fotoklubs, der Ungarischen Schule Wien (www.magyariskola.at), eingezahlt.\n\n' +
+              'Die Ausstellung findet im November 2026 in einer Wiener Galerie statt. Schirmherr und Kurator ist der Fotokünstler Norbert Bánhalmi.\n\n' +
+              'Bei Fragen schreib uns gerne: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
+              'Herzliche Grüße,\n' +
+              'das VIPACH-Team\n' +
+              'Vienna Photo Art & Creative Hub\n' +
+              'https://www.vipach.at'
+          });
+    } catch (mailError) {
+      applicantEmailStatus = 'Bestätigung fehlgeschlagen: ' + String(mailError);
+      console.error('Applicant email error: ' + mailError);
+    }
 
     // 3) Benachrichtigung an das Organisationsteam
-    MailApp.sendEmail({
-      to: CONFIG.NOTIFY_EMAIL,
-      subject: '[modell.vipach.at] Neue Bewerbung (DE): ' + name,
-      name: CONFIG.FROM_NAME,
-      replyTo: email,
-      body:
-        'Eine neue Bewerbung ist über die deutsche Seite eingegangen.\n\n' +
-        'Name: ' + name + '\n' +
-        'E-Mail: ' + email + '\n' +
-        'Telefon: ' + (phone || '—') + '\n' +
-        'Wohnort: ' + city + '\n' +
-        'Seitensprache: ' + (pageLang || '—') + '\n' +
-        'Nachricht:\n' + (message || '—') + '\n\n' +
-        'Tabelle: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
-    });
+    var organiserEmailStatus = 'Team-E-Mail gesendet';
+    try {
+      MailApp.sendEmail({
+            to: CONFIG.NOTIFY_EMAIL,
+            subject: '[modell.vipach.at] Neue Bewerbung (DE): ' + name,
+            name: CONFIG.FROM_NAME,
+            replyTo: email,
+            body:
+              'Eine neue Bewerbung ist über die deutsche Seite eingegangen.\n\n' +
+              'Name: ' + name + '\n' +
+              'E-Mail: ' + email + '\n' +
+              'Telefon: ' + (phone || '—') + '\n' +
+              'Wohnort: ' + city + '\n' +
+              'Seitensprache: ' + (pageLang || '—') + '\n' +
+              'Nachricht:\n' + (message || '—') + '\n\n' +
+              'Tabelle: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
+          });
+    } catch (notifyError) {
+      organiserEmailStatus = 'Team-E-Mail fehlgeschlagen: ' + String(notifyError);
+      console.error('Organiser email error: ' + notifyError);
+    }
+
+    // The application is already safely stored. Mail delivery errors are
+    // recorded in the status column but do not turn the submission into a failure.
+    sheet.getRange(rowNumber, 9).setValue('gespeichert | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
     return jsonResponse({ ok: true });
 
@@ -117,6 +133,25 @@ function getSheet() {
     sheet.getRange('1:1').setFontWeight('bold');
   }
   return sheet;
+}
+
+function appendApplicationRow(sheet, values) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var safeValues = values.map(safeForSheet);
+    sheet.appendRow(safeValues);
+    return sheet.getLastRow();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Prevents spreadsheet formula injection from user-provided values. */
+function safeForSheet(value) {
+  if (value instanceof Date) return value;
+  var text = String(value == null ? '' : value);
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
 }
 
 function clean(v) {
