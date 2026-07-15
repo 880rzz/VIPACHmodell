@@ -1028,28 +1028,28 @@ document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
 
 /* ============ form (Google Apps Script backend) ============ */
 /*
-  BEKÖTÉS — nyelvenkénti Google Apps Script:
-  1. Telepítsd a google-script/ mappában lévő három scriptet (Code_HU.gs,
-     Code_EN.gs, Code_DE.gs) — mindegyiket saját Google Táblázathoz kötve,
-     web appként közzétéve (Execute as: Me · Access: Anyone).
-  2. A kapott három /exec végű URL-t másold be ide:
+  A Google Apps Script HtmlService válasza Google által létrehozott, többszörösen
+  beágyazott iframe-ben fut. Emiatt a response-oldal postMessage üzenete nem
+  megbízhatóan jut vissza a külső weboldalhoz (különösen Safari alatt).
+
+  A beküldést ezért közvetlen, CORS-választ nem igénylő "no-cors" POST-tal
+  végezzük. A böngésző a Google válaszának tartalmát biztonsági okból nem olvassa,
+  de a kérés hálózati befejeződését megbízhatóan érzékeli. A backend továbbra is
+  validál, táblázatba ment és e-mailt küld.
 */
 const SCRIPT_URLS = {
   hu: "https://script.google.com/macros/s/AKfycbwLbV3hwtfBjODFe9p3UfFIk-2qvBr8d4SoRl83PnOWaRu_oqKTbnB7IP69tSm8cJBtgw/exec",
   en: "https://script.google.com/macros/s/AKfycbxQ-FlQR_6kIDesJMEv_dHptl-8R5SseghSQYAipR8Osr-3vnXg9LXUNGduC-i-x6-z/exec",
   de: "https://script.google.com/macros/s/AKfycbxcPTGFQjHN11AqLvgiER4-WNIx1JHIBzHVhDTCtOFrxDTLklrf67TibUQBWaGiKWD6xw/exec"
 };
-/*
-  Amíg egy nyelv URL-je üres, azon a nyelven az űrlap "demó módban" fut:
-  validál és sikerképernyőt mutat, de nem küld adatot sehová.
-*/
+
 /* ---- jelentkezési időszak ---- */
 const APPLICATION_DEADLINE = "2026-08-31"; // utolsó nap (aznap éjfélig érvényes)
-const PLACES_FULL = false; // <-- állítsd true-ra, ha betelt a 20 hely
+const PLACES_FULL = false; // állítsd true-ra, ha betelt a 20 hely
 
 const form = document.getElementById("applyForm");
 const errBox = document.getElementById("formError");
-const submitBtn = form.querySelector("button[type=submit]");
+const submitBtn = form.querySelector('button[type="submit"]');
 
 (function applyClosedState(){
   const deadlinePassed = new Date() > new Date(APPLICATION_DEADLINE + "T23:59:59");
@@ -1063,9 +1063,11 @@ const submitBtn = form.querySelector("button[type=submit]");
   setLang(document.documentElement.lang || "en");
 })();
 
-form.addEventListener("submit", async e=>{
-  e.preventDefault();
+form.addEventListener("submit", async event=>{
+  event.preventDefault();
   if(!form.reportValidity()) return;
+  if(form.dataset.submitting === "true") return;
+
   errBox.style.display = "none";
 
   const lang = document.documentElement.dataset.staticLang || document.documentElement.lang || "en";
@@ -1094,97 +1096,62 @@ form.addEventListener("submit", async e=>{
     tokenInput.name = "submit_token";
     form.appendChild(tokenInput);
   }
-  const submitToken = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`);
-  tokenInput.value = submitToken;
+  tokenInput.value = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-  const frameName = "vipach_submit_" + lang + "_" + Date.now();
-  const frame = document.createElement("iframe");
-  frame.name = frameName;
-  frame.title = "Form submission";
-  frame.setAttribute("aria-hidden", "true");
-  frame.tabIndex = -1;
-  frame.style.position = "fixed";
-  frame.style.width = "1px";
-  frame.style.height = "1px";
-  frame.style.left = "-10000px";
-  frame.style.top = "-10000px";
-  frame.style.opacity = "0";
-  frame.style.pointerEvents = "none";
-  frame.style.border = "0";
-  document.body.appendChild(frame);
-
-  const origLabel = submitBtn.textContent;
+  const originalLabel = submitBtn.textContent;
+  form.dataset.submitting = "true";
   submitBtn.disabled = true;
   submitBtn.setAttribute("aria-busy", "true");
   submitBtn.textContent = {hu:"Küldés…",en:"Sending…",de:"Wird gesendet…"}[lang] || "…";
 
-  const previous = {
-    action: form.getAttribute("action"),
-    method: form.getAttribute("method"),
-    target: form.getAttribute("target"),
-    enctype: form.getAttribute("enctype")
-  };
-
-  let confirmationTimer = null;
-  let messageHandler = null;
-
-  const cleanup = ()=>{
-    if(confirmationTimer) clearTimeout(confirmationTimer);
-    if(messageHandler) window.removeEventListener("message", messageHandler);
-    if(previous.action === null) form.removeAttribute("action"); else form.setAttribute("action", previous.action);
-    if(previous.method === null) form.removeAttribute("method"); else form.setAttribute("method", previous.method);
-    if(previous.target === null) form.removeAttribute("target"); else form.setAttribute("target", previous.target);
-    if(previous.enctype === null) form.removeAttribute("enctype"); else form.setAttribute("enctype", previous.enctype);
-    setTimeout(()=>frame.remove(), 1500);
-  };
-
   const showSuccess = ()=>{
-    if(form.dataset.completed === "true") return;
     form.dataset.completed = "true";
-    cleanup();
     form.style.display = "none";
-    const ok = document.getElementById("formSuccess");
-    ok.style.display = "block";
-    ok.scrollIntoView({behavior:"smooth",block:"center"});
+    const successBox = document.getElementById("formSuccess");
+    successBox.style.display = "block";
+    successBox.scrollIntoView({behavior:"smooth",block:"center"});
   };
 
-  const showError = err=>{
-    console.error("VIPACH form submission failed:", err);
-    cleanup();
+  const showError = error=>{
+    console.error("VIPACH form submission failed:", error);
+    form.dataset.submitting = "false";
     errBox.style.display = "block";
     errBox.scrollIntoView({behavior:"smooth",block:"center"});
     submitBtn.disabled = false;
     submitBtn.removeAttribute("aria-busy");
-    submitBtn.textContent = origLabel;
+    submitBtn.textContent = originalLabel;
   };
 
-  messageHandler = event=>{
-    /*
-      A Google Apps Script HtmlService a választ saját sandboxolt / beágyazott
-      Google-keretből is küldheti. Emiatt az event.source nem minden böngészőben
-      azonos a külső cél-iframe contentWindow értékével. A kriptográfiailag
-      egyedi submitToken biztonságosan összeköti a választ ezzel a beküldéssel.
-    */
-    const data = event.data;
-    if(!data || data.source !== "vipach-form" || data.token !== submitToken) return;
-    if(data.ok === true) showSuccess();
-    else showError(new Error(data.error || "server_error"));
-  };
-  window.addEventListener("message", messageHandler);
-
-  form.action = endpoint;
-  form.method = "POST";
-  form.target = frameName;
-  form.enctype = "application/x-www-form-urlencoded";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 45000);
 
   try{
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    HTMLFormElement.prototype.submit.call(form);
-    confirmationTimer = setTimeout(()=>showError(new Error("confirmation_timeout")), 45000);
-  }catch(err){
-    showError(err);
+    const body = new URLSearchParams();
+    for(const [key, value] of new FormData(form).entries()){
+      body.append(key, String(value));
+    }
+
+    await fetch(endpoint, {
+      method: "POST",
+      mode: "no-cors",
+      credentials: "omit",
+      cache: "no-store",
+      redirect: "follow",
+      referrerPolicy: "strict-origin-when-cross-origin",
+      body,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    showSuccess();
+  }catch(error){
+    clearTimeout(timeoutId);
+    showError(error);
   }
 });
+
 
 /* ============ statisztika: az oldal aljáig görgetők számlálása ============ */
 /* Amikor a látogató először eléri a láblécet, egy névtelen jelzést küldünk
