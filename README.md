@@ -1,161 +1,40 @@
-# modell.vipach.at — Nagy fotóművészek nyomában
+# VIPACH modell.vipach.at
 
-Statikus landing + jelentkezési oldal (HU/EN/DE), GitHub Pages-re,
-Google Apps Script űrlap-backenddel és automatikus visszaigazoló e-maillel.
+## Űrlaparchitektúra – v6 mail-only
 
-## Repo tartalma
-- `index.html` — a teljes oldal (három nyelv egy fájlban, nyelvváltóval)
-- `hero-gallery-firefly-original.jpeg` — a felhasználó által jóváhagyott, Adobe Firefly-jal készült eredeti koncepciókép
-- `hero-gallery-480.webp`, `hero-gallery-768.webp`, `hero-gallery-1152.webp` — vágás nélküli, reszponzív WebP-változatok
-- `hero-gallery-1152.jpg` — JPEG fallback és közösségimédia-előnézet
-- `CNAME` — a modell.vipach.at domainhez
-- `Code_HU.gs`, `Code_EN.gs`, `Code_DE.gs` — nyelvenkénti Google Apps Script backend
+Az oldal három nyelvi űrlapot használ, külön Google Apps Script web app végponttal:
 
-## 1) GitHub Pages
-1. Töltsd fel a csomag teljes tartalmát a repo gyökerébe, a nyelvi könyvtárakkal és a jogi oldalakkal együtt
-2. Repo → Settings → Pages → Source: "Deploy from a branch" → `main` / `/ (root)`
-3. DNS a vipach.at zónában: `modell` CNAME rekord → `<felhasznalonev>.github.io`
-4. Pages beállításokban: "Enforce HTTPS" bepipálása
+- `Code_HU.gs` → `/hu/`
+- `Code_EN.gs` → `/en/`
+- `Code_DE.gs` → `/de/`
 
-## 2) Google Apps Script (nyelvenként külön, 3×)
-Mindhárom scripthez (HU / EN / DE) ugyanez a menet:
-1. Hozz létre egy Google Táblázatot (pl. "Jelentkezések HU — modell.vipach.at")
-2. Táblázatban: **Bővítmények → Apps Script** → az editor tartalmát töröld,
-   illeszd be a megfelelő `Code_XX.gs` fájlt
-3. Ellenőrizd a fájl tetején a CONFIG-ot (NOTIFY_EMAIL: office@vipach.at)
-4. **Deploy → New deployment → Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-5. Első deploy-nál engedélyezd a Táblázat- és levélküldési jogosultságot
-6. Másold ki a kapott **/exec** végű URL-t
+A backend nem használ Google Táblázatot és nem ír külön adatbázisba. Egy érvényes jelentkezéskor két e-mailt küld:
 
-## 3) URL-ek bekötése az oldalba
-Az `index.html`-ben keresd meg:
-```js
-const SCRIPT_URLS = {
-  hu: "", // <-- magyar script /exec URL
-  en: "", // <-- angol script /exec URL
-  de: ""  // <-- német script /exec URL
-};
-```
-Írd be a három URL-t, majd commit + push.
+1. szervezői értesítés az `office@vipach.at` címre, a teljes űrlaptartalommal;
+2. visszaigazolás a jelentkező által megadott e-mail-címre.
 
-Amíg egy nyelv URL-je üres, azon a nyelven az űrlap demó módban fut
-(validál, de nem küld adatot).
+A weboldal csak akkor mutat teljes sikert, ha mindkét `MailApp.sendEmail()` hívás kivétel nélkül lefutott. A callback útvonala: `/form-callback/`.
 
-## Mit csinál a script?
-Minden beérkező jelentkezésnél:
-1. **Menti** az adatokat a saját Google Táblázatába (idő, név, e-mail,
-   telefon, város, nyelv, üzenet, forrás, státusz oszlopokkal)
-2. **Visszaigazoló e-mailt küld a jelentkezőnek** a saját nyelvén —
-   kifejezetten jelezve, hogy ez még nem kiválasztás és nem keletkeztet
-   fizetési kötelezettséget; a 299 EUR befizetési link csak a kiválasztás
-   utáni külön e-mailben érkezik (Bécsi Magyar Iskola számlájára)
-3. **Értesítést küld** az office@vipach.at címre a jelentkezés adataival
-4. Honeypot mező alapján kiszűri a spam-botokat
+## Apps Script telepítés
 
-## Kvóták, GDPR
-- MailApp napi limit: ingyenes Gmail-fiókkal 100 e-mail/nap, Google
-  Workspace-szel 1500/nap — a 2 e-mail/jelentkezés mellett bőven elég
-- A jelentkezői adatok a saját Google-fiókod Táblázataiban tárolódnak;
-  az adatkezelési tájékoztatóban a Google-t (Google Ireland Ltd.)
-  adatfeldolgozóként érdemes feltüntetni
-- A táblázatokhoz csak a szükséges személyek kapjanak hozzáférést,
-  és a projekt lezárta után a nem kiválasztottak adatait töröljétek
+1. Másold be a megfelelő `Code_*.gs` fájlt az adott Apps Script projektbe.
+2. Futtasd le kézzel egyszer a `testConfigurationAndEmail` függvényt.
+3. Engedélyezd a MailApp használatát.
+4. Üzembe helyezés → Központi telepítések kezelése → Szerkesztés → Új verzió → Üzembe helyezés.
+5. Beállítás: Végrehajtás mint **Én**, hozzáférés **Bárki**.
 
-## Jelentkezési időszak kezelése
-- Határidő: **2026. augusztus 31.** — utána az oldal automatikusan lezárja
-  az űrlapot és "A jelentkezési időszak lezárult" üzenetet mutat
-- Ha előbb betelik a 20 hely: az `index.html`-ben állítsd át
-  `const PLACES_FULL = false;` → `true`, commit + push — az űrlap helyén
-  a "Betelt mind a 20 hely" üzenet jelenik meg mindhárom nyelven
+A helyes backend-verzió: `2026-07-15-v6-mail-only`.
 
-## Statisztika (aljáig görgetők)
-- Amikor egy látogató először eléri az oldal alját, névtelen jelzés megy
-  az aktuális nyelv scriptjének — süti és személyes adat nélkül
-- Az eredmény nyelvenként a saját táblázat "Statisztika" / "Statistics" /
-  "Statistik" munkalapján gyűlik, napi bontásban
-- **Fontos:** a scriptek frissítése után új verziót kell publikálni:
-  Apps Script → Deploy → Manage deployments → ceruza ikon →
-  Version: "New version" → Deploy. Az URL változatlan marad.
+## Weboldalon frissítendő fájlok
 
-## Teendők élesítés előtt
-- Ellenőrizd a végleges szerződő fél, adózási/áfakezelési és számlázási adatokat.
-- A pontos bécsi galériahelyszínt és időpontot csak a helyszín végleges visszaigazolása után írd ki.
-- A modell- és kiállítási képfelhasználási megállapodást kezeld külön dokumentumként.
+- `hu/index.html`
+- `en/index.html`
+- `de/index.html`
+- `form-callback/index.html`
+- `hu/adatvedelem/index.html`
+- `en/privacy/index.html`
+- `de/datenschutz/index.html`
 
+## Teszt
 
-## 2026-07-13 audit update
-- HU/EN/DE indexable landing pages: `/hu/`, `/en/`, `/de/`
-- 12 real, localized legal pages (imprint, terms, privacy, withdrawal)
-- SEO/GEO/schema: canonical, hreflang, localized metadata, JSON-LD, sitemap, robots.txt, llms.txt, manifest, security headers
-- Offer wording: EUR 1,200 estimated professional/production value; EUR 299 VIPACH material and production cost contribution
-- Package now explicitly includes the elegant champagne exhibition opening
-- Lenticular technique has a clear explanation and localized international references
-- Form backends validate and record 18+, terms and privacy acknowledgement versions
-
-### Hero image
-The approved Adobe Firefly concept image is included as `hero-gallery-firefly-original.jpeg` and used through responsive, non-cropped renditions (`hero-gallery-480.webp`, `hero-gallery-768.webp`, `hero-gallery-1152.webp`, `hero-gallery-1152.jpg`). A visible caption states that it is an illustration, does not depict a real gallery, and does not show the project’s actual venue.
-
-### Legal review
-The legal pages are carefully drafted for an Austrian/EU consumer project, but publication should still be reviewed by the organisation's Austrian legal adviser, especially the contracting entity, tax/VAT treatment, final venue/date, cancellation policy and model-release wording.
-## v3 – lentikuláris GIF és Google Apps Script
-
-- A lentikuláris technika mellé bekerült az Imgur-példa mindhárom nyelven.
-- Az Imgur-tartalom adatvédelmi okból csak külön kattintás után töltődik be; addig nem jön létre harmadik féllel kapcsolat.
-- A három meglévő Google Apps Script webapp URL változatlan maradt.
-- A `Code_HU.gs`, `Code_EN.gs` és `Code_DE.gs` az eredeti működési logikát tartja meg; csak a 299 EUR-os összeg és az „egy bécsi galéria” megfogalmazás lett átvezetve a visszaigazoló e-mailben.
-- Az új összeg e-mailes megjelenéséhez a három meglévő Apps Script projekt kódját frissíteni, majd ugyanazt a telepítést új verzióval közzétenni kell; új webapp URL nem szükséges.
-
-## v9 — Premium Apple-style release
-
-- Complete favicon and Apple touch icon family.
-- English 1200 × 630 Open Graph/social share image.
-- Reduced-motion-aware premium motion and glass navigation.
-- No hidden files or folders.
-
-## v10 — Typography and UX audit
-- Persistent dark header in every state.
-- Apple-inspired system typography, sizes, line-height and spacing.
-- Reduced hero headline size on desktop, tablet and mobile.
-- Price explanation separated into a distinct light information panel.
-- Unreliable local GIF removed; replaced with a direct accessible Imgur example link.
-
-## v11 — FAQ spacing correction
-
-- Added balanced internal spacing to FAQ questions and answers on desktop, tablet and mobile.
-- Moved expand/collapse controls inward from the edge.
-- Improved reading width and line height.
-
-
-## v12 — Form submission reliability fix
-
-- Frontend now sends Google Apps Script requests with `mode: no-cors` and no longer parses the redirected ContentService response.
-- A 20-second timeout and visible network-error handling were added.
-- Applicant and organiser emails are handled independently in all three Apps Script versions.
-- A mail delivery error no longer marks an already saved application as failed.
-- Delivery status is written into the spreadsheet status column.
-- Spreadsheet formula-injection protection and an append lock were added.
-- Existing `/exec` URLs can remain unchanged after deploying a new script version.
-
-## v13 — Fotóművészeti történet és harmonikus szekciórendszer
-- Új, 9 fotóművészt bemutató háromnyelvű történeti blokk.
-- A projekt vizsgamunka-jellege egyértelműen bemutatva és a hivatalos Fotosuli-oldalhoz kapcsolva.
-- Hat elemes „Mit kapsz?” rendszer, szakmai záróprojekttel és kurátori prezentációval.
-- Harmonikus, egymástól jól elkülönülő Apple-jellegű háttérszínek minden fő tartalmi blokkhoz.
-
-## v17 — Updated English social media artwork
-
-- Replaced the previous Open Graph/Facebook artwork with the approved English campaign image.
-- Optimised 1200 × 630 JPG and WebP versions are used by Facebook, LinkedIn, WhatsApp, Messenger and X.
-- The full-resolution source is included as `social-share-en-original.png`.
-
-## v18 — Light-background contrast correction
-- Darkened all gold text and links on ivory, white, sand, stone, mist and lilac backgrounds.
-- Kept the brighter decorative gold on dark surfaces.
-- Added hover and forced-colors accessibility behavior.
-
-## v19 — Mobile hero contrast
-- Added a thin dark outline and layered shadow to the large hero title on mobile only.
-- Applied consistently to HU, EN and DE pages.
-- Desktop typography remains unchanged.
+A `testConfigurationAndEmail` futása után az `office@vipach.at` címre tesztlevélnek kell érkeznie. Ezután egy valós űrlaptesztnél az office postafiók és a jelentkező címe is kap levelet.

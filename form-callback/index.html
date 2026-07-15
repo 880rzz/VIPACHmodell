@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>VIPACH form callback</title>
+  <style>html,body{margin:0;background:#05090c;color:#eee;font:14px/1.5 system-ui,sans-serif}body{padding:20px}</style>
+</head>
+<body>
+  <p id="status">Processing form response…</p>
+  <script>
+  (function(){
+    const params = new URLSearchParams(location.search);
+    const payload = {
+      source: "vipach-form-callback",
+      status: params.get("status") || "server_error",
+      token: params.get("token") || "",
+      processed: params.get("processed") === "1" || params.get("stored") === "1",
+      applicant_mail: params.get("applicant_mail") || "unknown",
+      office_mail: params.get("office_mail") || "unknown",
+      version: params.get("version") || ""
+    };
+    document.getElementById("status").textContent = payload.status === "ok"
+      ? "Submission confirmed."
+      : "Submission response received.";
+    try{
+      if(window.parent !== window) window.parent.postMessage(payload, "*");
+    }catch(e){}
+    try{
+      if(window.top !== window) window.top.postMessage(payload, "*");
+    }catch(e){}
+  })();
+  </script>
+</body>
+</html>
