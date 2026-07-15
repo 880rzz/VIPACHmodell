@@ -1159,7 +1159,12 @@ form.addEventListener("submit", async e=>{
   };
 
   messageHandler = event=>{
-    if(event.source !== frame.contentWindow) return;
+    /*
+      A Google Apps Script HtmlService a választ saját sandboxolt / beágyazott
+      Google-keretből is küldheti. Emiatt az event.source nem minden böngészőben
+      azonos a külső cél-iframe contentWindow értékével. A kriptográfiailag
+      egyedi submitToken biztonságosan összeköti a választ ezzel a beküldéssel.
+    */
     const data = event.data;
     if(!data || data.source !== "vipach-form" || data.token !== submitToken) return;
     if(data.ok === true) showSuccess();
@@ -1175,7 +1180,7 @@ form.addEventListener("submit", async e=>{
   try{
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     HTMLFormElement.prototype.submit.call(form);
-    confirmationTimer = setTimeout(()=>showError(new Error("confirmation_timeout")), 20000);
+    confirmationTimer = setTimeout(()=>showError(new Error("confirmation_timeout")), 45000);
   }catch(err){
     showError(err);
   }
