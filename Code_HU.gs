@@ -28,8 +28,10 @@ function doGet() {
 }
 
 function doPost(e) {
+  var submitToken = '';
   try {
     var p = (e && e.parameter) ? e.parameter : {};
+    submitToken = clean(p.submit_token);
 
     // Statisztika: az oldal aljáig görgetők számlálása (nincs e-mail, nincs személyes adat)
     if (p.event === 'scroll_bottom') {
@@ -38,7 +40,7 @@ function doPost(e) {
     }
 
     // Honeypot: a "website" mező rejtett, ember nem tölti ki
-    if (p.website) return jsonResponse({ ok: true });
+    if (p.website) return formResponse({ ok: true, token: submitToken });
 
     var name  = clean(p.name);
     var email = clean(p.email);
@@ -46,16 +48,21 @@ function doPost(e) {
     var city  = clean(p.city);
     var pageLang = clean(p.page_language);
     var message = clean(p.message);
+    var ageConfirmed = clean(p.age_confirmed);
+    var termsAccepted = clean(p.terms_accepted);
+    var privacyAcknowledged = clean(p.privacy_acknowledged);
+    var noticeVersion = clean(p.notice_version);
 
-    if (!name || !email || !city || !isValidEmail(email)) {
-      return jsonResponse({ ok: false, error: 'missing_fields' });
+    if (!name || !email || !city || !isValidEmail(email) ||
+        ageConfirmed !== 'yes' || !termsAccepted || !privacyAcknowledged) {
+      return formResponse({ ok: false, error: 'missing_or_invalid_fields', token: submitToken });
     }
 
     // 1) Mentés a táblázatba
     var sheet = getSheet();
     var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
-      'magyar oldal', 'új'
+      'magyar oldal | 18+: ' + ageConfirmed + ' | ASZF: ' + termsAccepted + ' | adatvedelem: ' + privacyAcknowledged + ' | tajekoztato: ' + noticeVersion, 'új'
     ]);
 
     // 2) Visszaigazoló e-mail a jelentkezőnek
@@ -79,7 +86,7 @@ function doPost(e) {
               'A helyek száma limitált (20 fő), a jelentkezési határidő 2026. augusztus 31. Minden jelentkezésre 48 órán belül válaszolunk; ha kiválasztásra kerülsz, ' +
               'külön visszaigazoló e-mailt küldünk, amely tartalmazza a 299 EUR részvételi díj online befizetési linkjét. ' +
               'A díj a VIPACH Fotóklub fenntartója, a Bécsi Magyar Iskola (www.magyariskola.at) számlájára érkezik.\n\n' +
-              'A kiállítás 2026 novemberében lesz egy bécsi galériában. Védnöke és kurátora Bánhalmi Norbert fotóművész.\n\n' +
+              'A kiállítás 2026. november 29-től december 5-ig tart a CITYgalleryVIENNA by publicartists galériában (Mahlerstraße 11, 1010 Wien). A pezsgős megnyitó november 29-én 17:00 órakor kezdődik. Védnöke és kurátora Bánhalmi Norbert fotóművész.\n\n' +
               'Kérdés esetén írj bátran: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
               'Üdvözlettel,\n' +
               'a VIPACH csapata\n' +
@@ -118,10 +125,11 @@ function doPost(e) {
     // recorded in the status column but do not turn the submission into a failure.
     sheet.getRange(rowNumber, 9).setValue('mentve | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
-    return jsonResponse({ ok: true });
+    return formResponse({ ok: true, token: submitToken });
 
   } catch (err) {
-    return jsonResponse({ ok: false, error: String(err) });
+    console.error('VIPACH doPost error: ' + err);
+    return formResponse({ ok: false, error: 'server_error', token: submitToken });
   }
 }
 
@@ -166,6 +174,17 @@ function clean(v) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function formResponse(obj) {
+  var payload = obj || {};
+  payload.source = 'vipach-form';
+  var safeJson = JSON.stringify(payload).replace(/</g, '\\u003c');
+  return HtmlService.createHtmlOutput(
+    '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
+    '<script>window.parent.postMessage(' + safeJson + ', "*");<\/script>' +
+    '</body></html>'
+  ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function jsonResponse(obj) {

@@ -28,8 +28,10 @@ function doGet() {
 }
 
 function doPost(e) {
+  var submitToken = '';
   try {
     var p = (e && e.parameter) ? e.parameter : {};
+    submitToken = clean(p.submit_token);
 
     // Statisztika: az oldal aljáig görgetők számlálása (nincs e-mail, nincs személyes adat)
     if (p.event === 'scroll_bottom') {
@@ -38,7 +40,7 @@ function doPost(e) {
     }
 
     // Honeypot: das Feld "website" ist versteckt; Menschen füllen es nie aus
-    if (p.website) return jsonResponse({ ok: true });
+    if (p.website) return formResponse({ ok: true, token: submitToken });
 
     var name  = clean(p.name);
     var email = clean(p.email);
@@ -46,16 +48,21 @@ function doPost(e) {
     var city  = clean(p.city);
     var pageLang = clean(p.page_language);
     var message = clean(p.message);
+    var ageConfirmed = clean(p.age_confirmed);
+    var termsAccepted = clean(p.terms_accepted);
+    var privacyAcknowledged = clean(p.privacy_acknowledged);
+    var noticeVersion = clean(p.notice_version);
 
-    if (!name || !email || !city || !isValidEmail(email)) {
-      return jsonResponse({ ok: false, error: 'missing_fields' });
+    if (!name || !email || !city || !isValidEmail(email) ||
+        ageConfirmed !== 'yes' || !termsAccepted || !privacyAcknowledged) {
+      return formResponse({ ok: false, error: 'missing_or_invalid_fields', token: submitToken });
     }
 
     // 1) In das Sheet eintragen
     var sheet = getSheet();
     var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
-      'deutsche Seite', 'neu'
+      'deutsche Seite | 18+: ' + ageConfirmed + ' | AGB: ' + termsAccepted + ' | Datenschutz: ' + privacyAcknowledged + ' | Hinweis: ' + noticeVersion, 'neu'
     ]);
 
     // 2) Bestätigungs-E-Mail an die Bewerberin / den Bewerber
@@ -79,7 +86,7 @@ function doPost(e) {
               'Die Plätze sind begrenzt (20 Teilnehmende), Bewerbungsfrist ist der 31. August 2026. Wir antworten auf jede Bewerbung innerhalb von 48 Stunden; wirst du ausgewählt, ' +
               'erhältst du eine separate Bestätigungs-E-Mail mit dem Online-Zahlungslink für den Teilnahmebeitrag von 299 EUR. ' +
               'Der Beitrag wird auf das Konto des Trägers des VIPACH Fotoklubs, der Ungarischen Schule Wien (www.magyariskola.at), eingezahlt.\n\n' +
-              'Die Ausstellung findet im November 2026 in einer Wiener Galerie statt. Schirmherr und Kurator ist der Fotokünstler Norbert Bánhalmi.\n\n' +
+              'Die Ausstellung findet vom 29. November bis 5. Dezember 2026 in der CITYgalleryVIENNA by publicartists (Mahlerstraße 11, 1010 Wien) statt. Die Eröffnung mit Sektempfang beginnt am 29. November um 17:00 Uhr. Schirmherr und Kurator ist der Fotokünstler Norbert Bánhalmi.\n\n' +
               'Bei Fragen schreib uns gerne: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
               'Herzliche Grüße,\n' +
               'das VIPACH-Team\n' +
@@ -118,10 +125,11 @@ function doPost(e) {
     // recorded in the status column but do not turn the submission into a failure.
     sheet.getRange(rowNumber, 9).setValue('gespeichert | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
-    return jsonResponse({ ok: true });
+    return formResponse({ ok: true, token: submitToken });
 
   } catch (err) {
-    return jsonResponse({ ok: false, error: String(err) });
+    console.error('VIPACH doPost error: ' + err);
+    return formResponse({ ok: false, error: 'server_error', token: submitToken });
   }
 }
 
@@ -166,6 +174,17 @@ function clean(v) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function formResponse(obj) {
+  var payload = obj || {};
+  payload.source = 'vipach-form';
+  var safeJson = JSON.stringify(payload).replace(/</g, '\\u003c');
+  return HtmlService.createHtmlOutput(
+    '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
+    '<script>window.parent.postMessage(' + safeJson + ', "*");<\/script>' +
+    '</body></html>'
+  ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function jsonResponse(obj) {

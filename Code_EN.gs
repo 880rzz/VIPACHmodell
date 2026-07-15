@@ -28,8 +28,10 @@ function doGet() {
 }
 
 function doPost(e) {
+  var submitToken = '';
   try {
     var p = (e && e.parameter) ? e.parameter : {};
+    submitToken = clean(p.submit_token);
 
     // Statisztika: az oldal aljáig görgetők számlálása (nincs e-mail, nincs személyes adat)
     if (p.event === 'scroll_bottom') {
@@ -38,7 +40,7 @@ function doPost(e) {
     }
 
     // Honeypot: the "website" field is hidden; humans never fill it
-    if (p.website) return jsonResponse({ ok: true });
+    if (p.website) return formResponse({ ok: true, token: submitToken });
 
     var name  = clean(p.name);
     var email = clean(p.email);
@@ -46,16 +48,21 @@ function doPost(e) {
     var city  = clean(p.city);
     var pageLang = clean(p.page_language);
     var message = clean(p.message);
+    var ageConfirmed = clean(p.age_confirmed);
+    var termsAccepted = clean(p.terms_accepted);
+    var privacyAcknowledged = clean(p.privacy_acknowledged);
+    var noticeVersion = clean(p.notice_version);
 
-    if (!name || !email || !city || !isValidEmail(email)) {
-      return jsonResponse({ ok: false, error: 'missing_fields' });
+    if (!name || !email || !city || !isValidEmail(email) ||
+        ageConfirmed !== 'yes' || !termsAccepted || !privacyAcknowledged) {
+      return formResponse({ ok: false, error: 'missing_or_invalid_fields', token: submitToken });
     }
 
     // 1) Log to the sheet
     var sheet = getSheet();
     var rowNumber = appendApplicationRow(sheet, [
       new Date(), name, email, phone, city, pageLang, message,
-      'English page', 'new'
+      'English page | age 18+: ' + ageConfirmed + ' | terms: ' + termsAccepted + ' | privacy: ' + privacyAcknowledged + ' | notice: ' + noticeVersion, 'new'
     ]);
 
     // 2) Confirmation email to the applicant
@@ -79,7 +86,7 @@ function doPost(e) {
               'Places are limited (20 participants) and the application deadline is 31 August 2026. We respond to every application within 48 hours; if you are selected, ' +
               'you will receive a separate confirmation email containing the online payment link for the EUR 299 participation fee. ' +
               'The fee is paid to the account of the maintaining organisation of the VIPACH Photo Club, the Hungarian School of Vienna (www.magyariskola.at).\n\n' +
-              'The exhibition will take place in November 2026 in a gallery in Vienna. Its patron and curator is fine art photographer Norbert Bánhalmi.\n\n' +
+              'The exhibition runs from 29 November to 5 December 2026 at CITYgalleryVIENNA by publicartists (Mahlerstraße 11, 1010 Vienna). The champagne opening begins at 17:00 on 29 November. Patron and curator: fine art photographer Norbert Bánhalmi.\n\n' +
               'If you have any questions, feel free to write to us: ' + CONFIG.NOTIFY_EMAIL + '\n\n' +
               'Best regards,\n' +
               'The VIPACH team\n' +
@@ -118,10 +125,11 @@ function doPost(e) {
     // recorded in the status column but do not turn the submission into a failure.
     sheet.getRange(rowNumber, 9).setValue('saved | ' + applicantEmailStatus + ' | ' + organiserEmailStatus);
 
-    return jsonResponse({ ok: true });
+    return formResponse({ ok: true, token: submitToken });
 
   } catch (err) {
-    return jsonResponse({ ok: false, error: String(err) });
+    console.error('VIPACH doPost error: ' + err);
+    return formResponse({ ok: false, error: 'server_error', token: submitToken });
   }
 }
 
@@ -166,6 +174,17 @@ function clean(v) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function formResponse(obj) {
+  var payload = obj || {};
+  payload.source = 'vipach-form';
+  var safeJson = JSON.stringify(payload).replace(/</g, '\\u003c');
+  return HtmlService.createHtmlOutput(
+    '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
+    '<script>window.parent.postMessage(' + safeJson + ', "*");<\/script>' +
+    '</body></html>'
+  ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function jsonResponse(obj) {
